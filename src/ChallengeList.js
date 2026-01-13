@@ -22,7 +22,7 @@ import {
   Stack,
   FormControl,
   InputLabel,
-  Badge,
+  // Badge, // Removed unused import
   Tooltip,
   Fade,
   Slide,
@@ -38,16 +38,16 @@ import {
   LocalFireDepartment as FireIcon,
   Search as SearchIcon,
   Star as StarIcon,
-  WorkspacePremium as PremiumIcon,
+  // WorkspacePremium as PremiumIcon, // Removed unused import
   Person as PersonIcon,
   Group as GroupIcon,
   Schedule as ScheduleIcon,
   EmojiEvents as TrophyIcon,
-  Visibility as ViewIcon,
+  // Visibility as ViewIcon, // Removed unused import
   FilterList as FilterIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
-  Sort as SortIcon,
+  // Sort as SortIcon, // Removed unused import
   TrendingUp as TrendingIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
@@ -79,8 +79,8 @@ function ChallengeList() {
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        setChallenges(data);
+        const responseData = await response.json();
+        setChallenges(responseData.challenges || []); // Access the challenges array
       } else {
         console.error('Failed to fetch challenges');
       }

@@ -18,7 +18,7 @@ import {
   AppBar, 
   Toolbar, 
   Typography, 
-  Container, 
+  // Container, // Removed Container import
   Drawer,
   List,
   ListItemIcon,
@@ -39,7 +39,8 @@ import {
   Chip,
   Zoom,
   Skeleton,
-  CssBaseline
+  CssBaseline,
+  Paper // Add Paper import
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -505,11 +506,11 @@ function AppContent() {
           }}
         >
           <Fade in={true} timeout={600}>
-            <Container 
-              maxWidth="xl" 
-              sx={{ 
-                py: { xs: 2, md: 3 },
-                px: { xs: 2, md: 3 },
+            <Paper // Replaced Container with Paper
+              sx={{
+                minHeight: '100%', // Ensure Paper takes full height
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Routes>
@@ -525,7 +526,7 @@ function AppContent() {
                 <Route path="/gamification" element={<DisplayGamification />} />
                 <Route path="/profile" element={<Profile />} />
               </Routes>
-            </Container>
+            </Paper>
           </Fade>
         </Box>
 

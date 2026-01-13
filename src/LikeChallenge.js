@@ -1,7 +1,8 @@
-// d:\Projects\Gamified\frontend\src\LikeChallenge.js
 import React, { useState } from 'react';
+import { Box, Button, Typography, useTheme } from '@mui/material';
 
 function LikeChallenge() {
+  const theme = useTheme();
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(10); // Mock likes
 
@@ -16,12 +17,17 @@ function LikeChallenge() {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginTop: '10px' }}>
-      <button onClick={handleLike} style={{ backgroundColor: '#e9ecef', color: '#007bff', border: '1px solid #007bff', borderRadius: '5px', padding: '5px 10px', cursor: 'pointer', marginRight: '10px' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', mt: theme.spacing(1) }}>
+      <Button
+        variant={liked ? 'outlined' : 'contained'}
+        color="primary"
+        onClick={handleLike}
+        sx={{ mr: theme.spacing(1) }}
+      >
         {liked ? 'Unlike' : 'Like'}
-      </button>
-      <span>{likes} likes</span>
-    </div>
+      </Button>
+      <Typography variant="body1">{likes} likes</Typography>
+    </Box>
   );
 }
 

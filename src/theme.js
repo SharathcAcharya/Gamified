@@ -248,10 +248,26 @@ const theme = createTheme({
         },
         outlined: {
           borderWidth: 2,
-          '&:hover': {
-            borderWidth: 2,
-            backgroundColor: 'rgba(99, 102, 241, 0.04)',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          padding: theme.spacing(2.5), // Default padding
+          backgroundColor: theme.palette.background.paper,
+          borderRadius: theme.shape.borderRadius,
+          boxShadow: theme.shadows[1],
+          backgroundImage: 'none', // Merged from the second MuiPaper
+          [theme.breakpoints.up('sm')]: {
+            padding: theme.spacing(3.5), // Larger padding on small screens and up
           },
+          [theme.breakpoints.up('md')]: {
+            padding: theme.spacing(5), // Even larger padding on medium screens and up
+          },
+        }),
+        elevation1: { // Kept as a separate style for elevation1
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
         },
       },
     },
@@ -271,16 +287,6 @@ const theme = createTheme({
             borderRadius: 12,
             margin: '8px',
           },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none',
-        },
-        elevation1: {
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
         },
       },
     },

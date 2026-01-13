@@ -12,7 +12,7 @@ import {
   Chip,
   Avatar,
   Box,
-  IconButton,
+  // IconButton, // Removed unused import
   Fab,
   Zoom,
   Slide,
@@ -22,14 +22,14 @@ import {
   Skeleton,
 } from '@mui/material';
 import {
-  TrendingUp as TrendingUpIcon,
+  // TrendingUp as TrendingUpIcon, // Removed unused import
   EmojiEvents as TrophyIcon,
   Star as StarIcon,
   Add as AddIcon,
   Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
   Group as GroupIcon,
-  LocalFire as FireIcon,
+  // LocalFire as FireIcon, // Removed unused import
   Timeline as TimelineIcon,
   Assignment as AssignmentIcon,
 } from '@mui/icons-material';
@@ -252,8 +252,9 @@ const Dashboard = () => {
       });
       
       if (challengesResponse.ok) {
-        const challengesData = await challengesResponse.json();
-        const recentChallenges = challengesData.slice(0, 4).map(challenge => ({
+        const responseData = await challengesResponse.json(); // Rename to avoid confusion
+        const challengesArray = responseData.challenges || []; // Access the challenges array
+        const recentChallenges = challengesArray.slice(0, 4).map(challenge => ({
           ...challenge,
           progress: Math.floor(Math.random() * 101), // Simulated progress
           deadline: `${Math.floor(Math.random() * 7 + 1)} days left`,
@@ -262,10 +263,10 @@ const Dashboard = () => {
         
         // Calculate stats
         setStats({
-          totalChallenges: challengesData.length,
-          completedChallenges: Math.floor(challengesData.length * 0.6),
-          totalPoints: challengesData.reduce((sum, c) => sum + (c.points || 100), 0),
-          currentLevel: Math.floor(challengesData.length / 3) + 1,
+          totalChallenges: challengesArray.length,
+          completedChallenges: Math.floor(challengesArray.length * 0.6),
+          totalPoints: challengesArray.reduce((sum, c) => sum + (c.points || 100), 0),
+          currentLevel: Math.floor(challengesArray.length / 3) + 1,
         });
       }
     } catch (error) {

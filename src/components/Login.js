@@ -16,7 +16,6 @@ import {
   useMediaQuery,
   Fade,
   Slide,
-  Zoom,
   LinearProgress,
   Avatar,
   Divider,
@@ -46,11 +45,9 @@ function TabPanel({ children, value, index, ...other }) {
       aria-labelledby={`login-tab-${index}`}
       {...other}
     >
-      {value === index && (
-        <Box sx={{ mt: 2 }}>
+      <Box sx={{ mt: 2 }}>
           {children}
         </Box>
-      )}
     </div>
   );
 }
@@ -228,7 +225,6 @@ function Login() {
 
           {/* Right side - Login Form */}
           <Grid item xs={12} md={6}>
-            <Zoom in={true} timeout={600}>
               <Paper
                 elevation={24}
                 sx={{
@@ -281,8 +277,8 @@ function Login() {
                       },
                     }}
                   >
-                    <Tab label="Sign In" id="login-tab-0" aria-controls="login-tabpanel-0" />
-                    <Tab label="Sign Up" id="login-tab-1" aria-controls="login-tabpanel-1" />
+                    <Tab key="signInTab" label="Sign In" id="login-tab-0" aria-controls="login-tabpanel-0" />
+                    <Tab key="signUpTab" label="Sign Up" id="login-tab-1" aria-controls="login-tabpanel-1" />
                   </Tabs>
                 </Box>
 
@@ -544,7 +540,6 @@ function Login() {
                   </Box>
                 )}
               </Paper>
-            </Zoom>
           </Grid>
         </Grid>
       </Container>
