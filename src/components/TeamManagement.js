@@ -34,9 +34,12 @@ import {
   EmojiEvents as TrophyIcon,
   PersonAdd as InviteIcon
 } from '@mui/icons-material';
+import { useSocket } from '../contexts/SocketContext';
+import { useEffect } from 'react';
 
 function TeamManagement() {
   const theme = useTheme();
+  const { socket } = useSocket();
   const [teams, setTeams] = useState([
     {
       id: '1',
@@ -57,6 +60,37 @@ function TeamManagement() {
 
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [newTeam, setNewTeam] = useState({ name: '', description: '' });
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('team_joined', (team) => {
+        setTeams(prev => [...prev, team]);
+      });
+
+      socket.on('team_left', (teamId) => {
+        setTeams(prev => prev.filter(t => t.id !== teamId));
+      });
+
+      socket.on('team_points_update', ({ teamId, points }) => {
+        setTeams(prev => prev.map(t => 
+          t.id === teamId ? { ...t, teamPoints: points } : t
+        ));
+      });
+
+      socket.on('team_challenge_update', ({ teamId, activeChallenges, progress }) => {
+        setTeams(prev => prev.map(t => 
+          t.id === teamId ? { ...t, activeChallenges, progress } : t
+        ));
+      });
+
+      return () => {
+        socket.off('team_joined');
+        socket.off('team_left');
+        socket.off('team_points_update');
+        socket.off('team_challenge_update');
+      };
+    }
+  }, [socket]);
 
   const handleCreateTeam = () => {
     // Add team creation logic here

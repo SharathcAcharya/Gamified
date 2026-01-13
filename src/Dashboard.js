@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { useSocket } from './contexts/SocketContext';
 
 // Animated counter component
 const AnimatedCounter = ({ value, duration = 1000 }) => {
@@ -223,12 +224,14 @@ const ChallengeCard = ({ challenge, index }) => {
 };
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [challenges, setChallenges] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [challenges, setChallenges] = useState([]);
   const [stats, setStats] = useState({
     totalChallenges: 0,
     completedChallenges: 0,
@@ -238,12 +241,74 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('stats_update', (data) => {
+        console.log('Stats update received:', data);
+        setStats(prev => ({
+          ...prev,
+          totalPoints: data.totalPoints || prev.totalPoints,
+          currentLevel: data.level || prev.currentLevel,
+        }));
+      });
+
+      socket.on('points_update', (data) => {
+        setStats(prev => ({
+          ...prev,
+          totalPoints: data.points,
+        }));
+      });
+
+      socket.on('level_update', (data) => {
+        setStats(prev => ({
+          ...prev,
+          currentLevel: data.level,
+        }));
+      });
+
+      socket.on('streak_update', (data) => {
+        console.log('Streak update received:', data);
+        // We could add a streak field to stats if needed
+      });
+
+      socket.on('challenge_update', (data) => {
+        console.log('Challenge update received:', data);
+        fetchDashboardData();
+      });
+
+      return () => {
+        socket.off('stats_update');
+        socket.off('points_update');
+        socket.off('level_update');
+        socket.off('streak_update');
+        socket.off('challenge_update');
+      };
+    }
+  }, [socket]);
 
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
       
+      // Fetch user profile for stats
+      const profileResponse = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        setStats({
+          totalChallenges: profile.challenges.total,
+          completedChallenges: profile.challenges.completed,
+          totalPoints: profile.experience,
+          currentLevel: profile.level,
+        });
+      }
+
       // Fetch user challenges
       const challengesResponse = await fetch('/api/challenges', {
         headers: {
@@ -252,22 +317,14 @@ const Dashboard = () => {
       });
       
       if (challengesResponse.ok) {
-        const responseData = await challengesResponse.json(); // Rename to avoid confusion
-        const challengesArray = responseData.challenges || []; // Access the challenges array
+        const responseData = await challengesResponse.json();
+        const challengesArray = responseData.challenges || [];
         const recentChallenges = challengesArray.slice(0, 4).map(challenge => ({
           ...challenge,
-          progress: Math.floor(Math.random() * 101), // Simulated progress
-          deadline: `${Math.floor(Math.random() * 7 + 1)} days left`,
+          progress: challenge.progress?.find(p => p.user === user?.id)?.value || 0,
+          deadline: challenge.endDate ? `${Math.ceil((new Date(challenge.endDate) - new Date()) / (1000 * 60 * 60 * 24))} days left` : 'No deadline',
         }));
         setChallenges(recentChallenges);
-        
-        // Calculate stats
-        setStats({
-          totalChallenges: challengesArray.length,
-          completedChallenges: Math.floor(challengesArray.length * 0.6),
-          totalPoints: challengesArray.reduce((sum, c) => sum + (c.points || 100), 0),
-          currentLevel: Math.floor(challengesArray.length / 3) + 1,
-        });
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

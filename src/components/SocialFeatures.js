@@ -48,6 +48,7 @@ import {
   Share as ShareIcon,
   EmojiEvents as TrophyIcon
 } from '@mui/icons-material';
+import { useSocket } from '../contexts/SocketContext';
 
 // Friend Request Item Component
 const FriendRequestItem = ({ request, onAccept, onReject }) => {
@@ -479,6 +480,7 @@ const PrivacySettings = ({ settings, onUpdateSettings }) => {
 // Main Social Features Component
 const SocialFeatures = () => {
   const theme = useTheme();
+  const { socket } = useSocket();
   const [currentTab, setCurrentTab] = useState(0);
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
@@ -493,6 +495,52 @@ const SocialFeatures = () => {
   useEffect(() => {
     fetchSocialData();
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('new_notification', (notification) => {
+        // Handle different notification types
+        if (notification.type === 'friend_request') {
+          // The notification data might need to be mapped to what friend_request_received expected
+          // SocialService.js sendNotification sends { recipient, sender, type: 'friend_request', data: { connectionId } }
+          // SocialFeatures expects { from: { username, ... }, ... }
+          
+          // For friend requests, we should probably fetch the request details or just refresh
+          fetchSocialData();
+          setAlert({
+            open: true,
+            message: notification.message || `New friend request received!`,
+            severity: 'info'
+          });
+        } else if (notification.type === 'friend_request_accepted') {
+          fetchSocialData();
+          setAlert({
+            open: true,
+            message: notification.message || `A friend request was accepted!`,
+            severity: 'success'
+          });
+        }
+      });
+
+      socket.on('friend_online', (userId) => {
+        setFriends(prev => prev.map(f => 
+          f._id === userId ? { ...f, isOnline: true } : f
+        ));
+      });
+
+      socket.on('friend_offline', (userId) => {
+        setFriends(prev => prev.map(f => 
+          f._id === userId ? { ...f, isOnline: false, lastActive: new Date() } : f
+        ));
+      });
+
+      return () => {
+        socket.off('new_notification');
+        socket.off('friend_online');
+        socket.off('friend_offline');
+      };
+    }
+  }, [socket]);
 
   const fetchSocialData = async () => {
     try {

@@ -51,19 +51,12 @@ import {
   LinkedIn as LinkedInIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { useSocket } from './contexts/SocketContext';
 
 function Profile() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  const [activeTab, setActiveTab] = useState(0);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
+  const { socket } = useSocket();
 
   // Enhanced mock user data
   const userProfile = {
@@ -206,6 +199,119 @@ function Profile() {
       { name: 'Leadership', level: 88, color: '#6366F1' }
     ]
   };
+
+  const [activeTab, setActiveTab] = useState(0);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState(null);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      
+      // Map backend profile to frontend structure
+      const mappedProfile = {
+        id: data._id || data.id,
+        name: data.displayName || data.username,
+        email: data.email,
+        avatar: data.avatar || data.profilePicture,
+        title: data.bio || 'Member',
+        location: data.location || 'Online',
+        joinedDate: new Date(data.createdAt || Date.now()),
+        
+        stats: {
+          totalPoints: data.experience || 0,
+          currentStreak: data.streak || 0,
+          longestStreak: data.longestStreak || 0,
+          challengesCompleted: data.stats?.challengesCompleted || 0,
+          challengesCreated: data.stats?.challengesCreated || 0,
+          rank: data.rank || 0,
+          level: data.level || 1,
+          nextLevelPoints: 1000 - ((data.experience || 0) % 1000),
+          totalChallengesJoined: data.challenges?.total || 0,
+          successRate: data.successRate || 0,
+          communityScore: data.communityScore || 5.0
+        },
+
+        achievements: data.achievements || [],
+        activeChallenges: data.challenges?.activeChallenges || [],
+        recentActivity: data.recentActivity || [],
+        skills: data.skills || []
+      };
+
+      setProfileData(mappedProfile);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('stats_update', (data) => {
+        setProfileData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            stats: {
+              ...prev.stats,
+              totalPoints: data.totalPoints,
+              level: data.currentLevel
+            }
+          };
+        });
+      });
+
+      socket.on('streak_update', (newStreak) => {
+        setProfileData(prev => ({
+          ...prev,
+          stats: { ...prev.stats, currentStreak: newStreak }
+        }));
+      });
+
+      socket.on('points_update', (newPoints) => {
+        setProfileData(prev => ({
+          ...prev,
+          stats: { ...prev.stats, totalPoints: newPoints }
+        }));
+      });
+
+      socket.on('level_update', (newLevel) => {
+        setProfileData(prev => ({
+          ...prev,
+          stats: { ...prev.stats, level: newLevel }
+        }));
+      });
+
+      socket.on('achievement_unlocked', (achievement) => {
+        setProfileData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            achievements: [achievement, ...prev.achievements]
+          };
+        });
+      });
+
+      return () => {
+        socket.off('stats_update');
+        socket.off('streak_update');
+        socket.off('points_update');
+        socket.off('level_update');
+        socket.off('achievement_unlocked');
+      };
+    }
+  }, [socket]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -479,7 +585,7 @@ function Profile() {
             <StatCard
               icon={<StarIcon fontSize="large" />}
               label="Total Points"
-              value={userProfile.stats.totalPoints.toLocaleString()}
+              value={profileData.stats.totalPoints.toLocaleString()}
               color="warning"
             />
           </Grid>
@@ -487,27 +593,27 @@ function Profile() {
             <StatCard
               icon={<FireIcon fontSize="large" />}
               label="Current Streak"
-              value={`${userProfile.stats.currentStreak}d`}
+              value={`${profileData.stats.currentStreak}d`}
               color="error"
-              subtitle={`Best: ${userProfile.stats.longestStreak}d`}
+              subtitle={`Best: ${profileData.stats.longestStreak}d`}
             />
           </Grid>
           <Grid item xs={6} md={3}>
             <StatCard
               icon={<TrophyIcon fontSize="large" />}
               label="Completed"
-              value={userProfile.stats.challengesCompleted}
+              value={profileData.stats.challengesCompleted}
               color="success"
-              subtitle={`${userProfile.stats.successRate}% success rate`}
+              subtitle={`${profileData.stats.successRate}% success rate`}
             />
           </Grid>
           <Grid item xs={6} md={3}>
             <StatCard
               icon={<LeaderboardIcon fontSize="large" />}
               label="Global Rank"
-              value={`#${userProfile.stats.rank}`}
+              value={`#${profileData.stats.rank}`}
               color="info"
-              subtitle={`Level ${userProfile.stats.level}`}
+              subtitle={`Level ${profileData.stats.level}`}
             />
           </Grid>
         </Grid>
@@ -530,14 +636,14 @@ function Profile() {
                   fontWeight: 'bold',
                 }}
               >
-                {userProfile.stats.level}
+                {profileData.stats.level}
               </Avatar>
               <Box sx={{ flex: 1 }}>
                 <Typography variant="h6" fontWeight="bold">
-                  Level {userProfile.stats.level}
+                  Level {profileData.stats.level}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {userProfile.stats.nextLevelPoints} points to next level
+                  {profileData.stats.nextLevelPoints} points to next level
                 </Typography>
               </Box>
             </Box>
@@ -565,7 +671,7 @@ function Profile() {
             <Typography variant="h6" fontWeight="bold" gutterBottom>
               Skills & Expertise
             </Typography>
-            {userProfile.skills.map((skill, index) => (
+            {profileData.skills.map((skill, index) => (
               <SkillBar key={skill.name} skill={skill} index={index} />
             ))}
           </CardContent>
@@ -580,7 +686,7 @@ function Profile() {
               Recent Activity
             </Typography>
             <List sx={{ p: 0 }}>
-              {userProfile.recentActivity.slice(0, 4).map((activity, index) => (
+              {profileData.recentActivity.slice(0, 4).map((activity, index) => (
                 <ActivityItem key={activity.id} activity={activity} index={index} />
               ))}
             </List>
@@ -594,14 +700,14 @@ function Profile() {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" fontWeight="bold" gutterBottom>
-          Your Achievements ({userProfile.achievements.length})
+          Your Achievements ({profileData.achievements.length})
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           Showcase your accomplishments and milestones
         </Typography>
       </Grid>
       
-      {userProfile.achievements.map((achievement, index) => (
+      {profileData.achievements.map((achievement, index) => (
         <Grid item xs={12} sm={6} lg={3} key={achievement.id}>
           <AchievementCard achievement={achievement} index={index} />
         </Grid>
@@ -613,14 +719,14 @@ function Profile() {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" fontWeight="bold" gutterBottom>
-          Active Challenges ({userProfile.activeChallenges.length})
+          Active Challenges ({profileData.activeChallenges.length})
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           Keep track of your ongoing challenges and progress
         </Typography>
       </Grid>
       
-      {userProfile.activeChallenges.map((challenge, index) => (
+      {profileData.activeChallenges.map((challenge, index) => (
         <Grid item xs={12} md={6} lg={4} key={challenge.id}>
           <ChallengeCard challenge={challenge} index={index} />
         </Grid>
@@ -630,11 +736,17 @@ function Profile() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-          <CircularProgress size={60} />
-        </Box>
-      </Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography>Error loading profile. Please try again later.</Typography>
+      </Box>
     );
   }
 
@@ -668,12 +780,12 @@ function Profile() {
                           fontWeight: 'bold'
                         }}
                       >
-                        {userProfile.stats.level}
+                        {profileData.stats.level}
                       </Avatar>
                     }
                   >
                     <Avatar
-                      src={userProfile.avatar}
+                      src={profileData.avatar}
                       sx={{
                         width: { xs: 120, md: 140 },
                         height: { xs: 120, md: 140 },
@@ -681,33 +793,33 @@ function Profile() {
                         boxShadow: theme.shadows[8],
                       }}
                     >
-                      {userProfile.name.charAt(0)}
+                      {profileData.name.charAt(0)}
                     </Avatar>
                   </Badge>
                   
                   <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
                     <Typography variant="h4" fontWeight="bold" gutterBottom>
-                      {userProfile.name}
+                      {profileData.name}
                     </Typography>
                     <Typography variant="h6" color="primary.main" gutterBottom>
-                      {userProfile.title}
+                      {profileData.title}
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent={{ xs: 'center', sm: 'flex-start' }} flexWrap="wrap" sx={{ mb: 2 }}>
                       <Chip
                         icon={<LocationIcon />}
-                        label={userProfile.location}
+                        label={profileData.location}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
                         icon={<CalendarIcon />}
-                        label={`Joined ${format(userProfile.joinedDate, 'MMM yyyy')}`}
+                        label={`Joined ${format(profileData.joinedDate, 'MMM yyyy')}`}
                         size="small"
                         variant="outlined"
                       />
                     </Stack>
                     <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400 }}>
-                      {userProfile.bio}
+                      {profileData.bio}
                     </Typography>
                   </Box>
                 </Box>
@@ -735,18 +847,18 @@ function Profile() {
                   
                   {/* Social Links */}
                   <Stack direction="row" spacing={1}>
-                    {userProfile.github && (
-                      <IconButton size="small" component="a" href={`https://github.com/${userProfile.github}`} target="_blank">
+                    {profileData.github && (
+                      <IconButton size="small" component="a" href={`https://github.com/${profileData.github}`} target="_blank">
                         <GitHubIcon />
                       </IconButton>
                     )}
-                    {userProfile.linkedin && (
-                      <IconButton size="small" component="a" href={`https://linkedin.com/in/${userProfile.linkedin}`} target="_blank">
+                    {profileData.linkedin && (
+                      <IconButton size="small" component="a" href={`https://linkedin.com/in/${profileData.linkedin}`} target="_blank">
                         <LinkedInIcon />
                       </IconButton>
                     )}
-                    {userProfile.website && (
-                      <IconButton size="small" component="a" href={userProfile.website} target="_blank">
+                    {profileData.website && (
+                      <IconButton size="small" component="a" href={profileData.website} target="_blank">
                         <LanguageIcon />
                       </IconButton>
                     )}
@@ -827,7 +939,7 @@ function Profile() {
               <TextField
                 fullWidth
                 label="Name"
-                defaultValue={userProfile.name}
+                defaultValue={profileData.name}
                 variant="outlined"
               />
             </Grid>
@@ -835,7 +947,7 @@ function Profile() {
               <TextField
                 fullWidth
                 label="Title"
-                defaultValue={userProfile.title}
+                defaultValue={profileData.title}
                 variant="outlined"
               />
             </Grid>
@@ -843,7 +955,7 @@ function Profile() {
               <TextField
                 fullWidth
                 label="Bio"
-                defaultValue={userProfile.bio}
+                defaultValue={profileData.bio}
                 multiline
                 rows={3}
                 variant="outlined"
@@ -853,7 +965,7 @@ function Profile() {
               <TextField
                 fullWidth
                 label="Location"
-                defaultValue={userProfile.location}
+                defaultValue={profileData.location}
                 variant="outlined"
               />
             </Grid>
@@ -861,7 +973,7 @@ function Profile() {
               <TextField
                 fullWidth
                 label="Website"
-                defaultValue={userProfile.website}
+                defaultValue={profileData.website}
                 variant="outlined"
               />
             </Grid>

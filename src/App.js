@@ -1,5 +1,5 @@
 import './App.css';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Dashboard from './Dashboard';
 import ChallengeList from './ChallengeList';
 import CreateChallenge from './CreateChallenge';
@@ -13,6 +13,7 @@ import PaymentSystem from './components/PaymentSystem';
 import NotificationSystem from './components/NotificationSystem';
 import AdvancedAnalytics from './components/AdvancedAnalytics';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import { 
   AppBar, 
@@ -40,7 +41,9 @@ import {
   Zoom,
   Skeleton,
   CssBaseline,
-  Paper // Add Paper import
+  Paper,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -68,17 +71,90 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { socket, isConnected } = useSocket();
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [stats, setStats] = useState({
+    level: 1,
+    xp: 0,
+    streak: 0,
+    notifications: 0,
+    challenges: 0
+  });
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        const response = await fetch('/api/users/profile', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const profile = await response.json();
+        if (profile) {
+          setStats({
+            level: profile.level || 1,
+            xp: profile.experience || 0,
+            streak: profile.streak || 0,
+            notifications: profile.unreadCount || 0,
+            challenges: profile.challenges?.active || 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user stats:', error);
+      }
+    };
+
+    if (user) {
+      fetchUserStats();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on('stats_update', (data) => {
+        setStats(prev => ({ 
+          ...prev, 
+          xp: data.totalPoints !== undefined ? data.totalPoints : prev.xp,
+          level: data.level !== undefined ? data.level : prev.level,
+          streak: data.streak !== undefined ? data.streak : prev.streak
+        }));
+      });
+
+      socket.on('points_update', (data) => {
+        setStats(prev => ({ ...prev, xp: data.points }));
+      });
+
+      socket.on('level_update', (data) => {
+        setStats(prev => ({ ...prev, level: data.level }));
+      });
+
+      socket.on('streak_update', (data) => {
+        setStats(prev => ({ ...prev, streak: data.streak }));
+      });
+
+      socket.on('unread_count_update', (count) => {
+        setStats(prev => ({ ...prev, notifications: count }));
+      });
+
+      return () => {
+        socket.off('stats_update');
+        socket.off('points_update');
+        socket.off('level_update');
+        socket.off('streak_update');
+        socket.off('unread_count_update');
+      };
+    }
+  }, [socket, isConnected]);
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/', badge: null },
-    { text: 'All Challenges', icon: <ListIcon />, path: '/challenges', badge: '12' },
+    { text: 'All Challenges', icon: <ListIcon />, path: '/challenges', badge: stats.challenges > 0 ? stats.challenges.toString() : null },
     { text: 'Create Challenge', icon: <AddIcon />, path: '/create-challenge', badge: null },
     { text: 'My Progress', icon: <TimelineIcon />, path: '/progress', badge: null },
     { text: 'Social Hub', icon: <PeopleIcon />, path: '/social', badge: 'New' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics', badge: null },
     { text: 'Billing', icon: <PaymentIcon />, path: '/payments', badge: null },
-    { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: '3' },
+    { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: stats.notifications > 0 ? stats.notifications.toString() : null },
     { text: 'Gamification', icon: <TrophyIcon />, path: '/gamification', badge: null },
     { text: 'Profile', icon: <PersonIcon />, path: '/profile', badge: null }
   ];
@@ -109,7 +185,7 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
               {user?.firstName || user?.email?.split('@')[0] || 'User'}
             </Typography>
             <Chip
-              label="Level 15"
+              label={`Level ${stats.level}`}
               size="small"
               color="primary"
               sx={{
@@ -123,14 +199,14 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Chip
             icon={<StarIcon />}
-            label="1,250 XP"
+            label={`${stats.xp.toLocaleString()} XP`}
             size="small"
             variant="outlined"
             sx={{ fontSize: '0.7rem' }}
           />
           <Chip
             icon={<FireIcon />}
-            label="7 day streak"
+            label={`${stats.streak} day streak`}
             size="small"
             variant="outlined"
             color="warning"
@@ -449,6 +525,40 @@ function AppContent() {
   const { user, loading } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { socket, isConnected } = useSocket();
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'info', title: '' });
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on('new_notification', (notification) => {
+        setToast({
+          open: true,
+          title: notification.title,
+          message: notification.message,
+          severity: 'info'
+        });
+      });
+
+      socket.on('achievement_unlocked', (achievement) => {
+        setToast({
+          open: true,
+          title: 'Achievement Unlocked! 🏆',
+          message: achievement.name || achievement.title,
+          severity: 'success'
+        });
+      });
+
+      return () => {
+        socket.off('new_notification');
+        socket.off('achievement_unlocked');
+      };
+    }
+  }, [socket, isConnected]);
+
+  const handleCloseToast = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setToast(prev => ({ ...prev, open: false }));
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -549,6 +659,24 @@ function AppContent() {
           />
         )}
       </Box>
+
+      {/* Real-time Notifications Toast */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseToast} 
+          severity={toast.severity} 
+          variant="filled"
+          sx={{ width: '100%', boxShadow: 3 }}
+        >
+          {toast.title && <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{toast.title}</Typography>}
+          <Typography variant="body2">{toast.message}</Typography>
+        </Alert>
+      </Snackbar>
     </Router>
   );
 }
@@ -556,7 +684,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <SocketProvider>
+        <AppContent />
+      </SocketProvider>
     </AuthProvider>
   );
 }

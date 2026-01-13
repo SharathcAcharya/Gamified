@@ -52,10 +52,12 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
+import { useSocket } from './contexts/SocketContext';
 
 function ChallengeList() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { socket } = useSocket();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -69,6 +71,37 @@ function ChallengeList() {
   useEffect(() => {
     fetchChallenges();
   }, []);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('challenge_created', (newChallenge) => {
+        setChallenges(prev => [newChallenge, ...prev]);
+      });
+
+      socket.on('challenge_deleted', (challengeId) => {
+        setChallenges(prev => prev.filter(c => c._id !== challengeId));
+      });
+
+      socket.on('participant_count_update', ({ challengeId, count }) => {
+        setChallenges(prev => prev.map(c => 
+          c._id === challengeId ? { ...c, participants: count } : c
+        ));
+      });
+
+      socket.on('challenge_like_update', ({ challengeId, likes }) => {
+        setChallenges(prev => prev.map(c => 
+          c._id === challengeId ? { ...c, likes } : c
+        ));
+      });
+
+      return () => {
+        socket.off('challenge_created');
+        socket.off('challenge_deleted');
+        socket.off('participant_count_update');
+        socket.off('challenge_like_update');
+      };
+    }
+  }, [socket]);
 
   const fetchChallenges = async () => {
     try {

@@ -385,7 +385,7 @@ const PaymentSystem = () => {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch('/api/users/profile', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

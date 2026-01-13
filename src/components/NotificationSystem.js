@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSocket } from '../contexts/SocketContext';
 import {
   Box,
   Card,
@@ -365,10 +366,47 @@ const NotificationCenter = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const { socket, isConnected } = useSocket();
 
   useEffect(() => {
     fetchNotifications();
   }, [filter]);
+
+  useEffect(() => {
+    if (socket && isConnected) {
+      socket.on('new_notification', (notification) => {
+        // If the filter is 'unread' or matches the new notification type, add it to the list
+        if (filter === 'all' || filter === 'unread' || filter === notification.type) {
+          setNotifications(prev => [notification, ...prev]);
+        }
+        setUnreadCount(prev => prev + 1);
+      });
+
+      socket.on('notification_read', (notificationId) => {
+        setNotifications(prev => prev.map(n => 
+          n._id === notificationId ? { ...n, read: true } : n
+        ));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      });
+
+      socket.on('notification_deleted', (notificationId) => {
+        setNotifications(prev => prev.filter(n => n._id !== notificationId));
+        // Note: we might need to adjust unreadCount if the deleted notification was unread
+        // But for simplicity, we can just refetch or rely on the backend emitting unread_count_update
+      });
+
+      socket.on('unread_count_update', (count) => {
+        setUnreadCount(count);
+      });
+
+      return () => {
+        socket.off('new_notification');
+        socket.off('notification_read');
+        socket.off('notification_deleted');
+        socket.off('unread_count_update');
+      };
+    }
+  }, [socket, isConnected, filter]);
 
   const fetchNotifications = async () => {
     setLoading(true);

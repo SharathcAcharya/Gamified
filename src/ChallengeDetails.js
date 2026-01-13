@@ -56,6 +56,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useParams } from 'react-router-dom';
+import { useSocket } from './contexts/SocketContext';
 
 // Enhanced mock data with modern features
 const mockChallenge = {
@@ -214,27 +215,114 @@ function ChallengeDetails() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { id } = useParams();
+  const { socket } = useSocket();
   
   const [activeTab, setActiveTab] = useState(0);
   const [isLiked, setIsLiked] = useState(mockChallenge.isLiked);
   const [isBookmarked, setIsBookmarked] = useState(mockChallenge.isBookmarked);
-  const [likesCount, setLikesCount] = useState(mockChallenge.likes);
-  const [loading, setLoading] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [challengeData, setChallengeData] = useState(null);
 
   useEffect(() => {
-    // Simulate loading challenge data
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1000);
+    fetchChallengeDetails();
   }, [id]);
+
+  const fetchChallengeDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/challenges/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      
+      // Map backend challenge to frontend structure
+      const mappedChallenge = {
+        ...data,
+        id: data._id || data.id,
+        userProgress: {
+          completedMilestones: data.userProgress?.completedMilestones || 0,
+          totalMilestones: data.milestones?.length || 0,
+          currentStreak: data.userProgress?.streak || 0,
+          pointsEarned: data.userProgress?.points || 0,
+          rank: data.userProgress?.rank || 0
+        },
+        stats: {
+          totalParticipants: data.stats?.totalParticipants || 0,
+          activeParticipants: data.stats?.activeParticipants || 0,
+          completionRate: data.stats?.completionRate || 0,
+          averageProgress: data.stats?.averageProgress || 0,
+          totalPoints: data.points || 0,
+          communityScore: data.communityScore || 4.5
+        }
+      };
+
+      setChallengeData(mappedChallenge);
+      setIsLiked(data.isLiked);
+      setLikesCount(data.likes || 0);
+    } catch (error) {
+      console.error('Error fetching challenge details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (socket && id) {
+      socket.emit('join_challenge', id);
+
+      socket.on('participant_joined', (data) => {
+        console.log('New participant joined:', data);
+        // Could update participants list in real-time
+      });
+
+      socket.on('challenge_update', (data) => {
+        console.log('Challenge update received:', data);
+        if (data.id === id || data._id === id) {
+          setChallengeData(prev => prev ? ({ ...prev, ...data }) : null);
+        }
+      });
+
+      socket.on('participant_count_update', ({ challengeId, count }) => {
+        if (challengeId === id) {
+          setChallengeData(prev => prev ? ({
+            ...prev,
+            stats: { ...prev.stats, totalParticipants: count }
+          }) : null);
+        }
+      });
+
+      return () => {
+        socket.emit('leave_challenge', id);
+        socket.off('participant_joined');
+        socket.off('challenge_update');
+        socket.off('participant_count_update');
+      };
+    }
+  }, [socket, id]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
-  const handleLikeToggle = () => {
-    setIsLiked(!isLiked);
-    setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+  const handleLikeToggle = async () => {
+    try {
+      const response = await fetch(`/api/challenges/${id}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        setIsLiked(!isLiked);
+        setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
   };
 
   const handleBookmarkToggle = () => {
@@ -261,7 +349,7 @@ function ChallengeDetails() {
   };
 
   const calculateProgress = () => {
-    return Math.round((mockChallenge.userProgress.completedMilestones / mockChallenge.userProgress.totalMilestones) * 100);
+    return Math.round((challengeData.userProgress.completedMilestones / challengeData.userProgress.totalMilestones) * 100);
   };
 
   const AnimatedStat = ({ icon, label, value, color = 'primary' }) => (
@@ -396,7 +484,7 @@ function ChallengeDetails() {
                 <AnimatedStat
                   icon={<FireIcon fontSize="large" />}
                   label="Streak"
-                  value={`${mockChallenge.userProgress.currentStreak}d`}
+                  value={`${challengeData.userProgress.currentStreak}d`}
                   color="error"
                 />
               </Grid>
@@ -404,7 +492,7 @@ function ChallengeDetails() {
                 <AnimatedStat
                   icon={<StarIcon fontSize="large" />}
                   label="Points"
-                  value={mockChallenge.userProgress.pointsEarned}
+                  value={challengeData.userProgress.pointsEarned}
                   color="warning"
                 />
               </Grid>
@@ -412,7 +500,7 @@ function ChallengeDetails() {
                 <AnimatedStat
                   icon={<LeaderboardIcon fontSize="large" />}
                   label="Rank"
-                  value={`#${mockChallenge.userProgress.rank}`}
+                  value={`#${challengeData.userProgress.rank}`}
                   color="info"
                 />
               </Grid>
@@ -454,7 +542,7 @@ function ChallengeDetails() {
                 About This Challenge
               </Typography>
               <Typography variant="body1" paragraph>
-                {mockChallenge.longDescription}
+                {challengeData.longDescription}
               </Typography>
               
               <Box sx={{ mb: 3 }}>
@@ -462,7 +550,7 @@ function ChallengeDetails() {
                   What You'll Learn
                 </Typography>
                 <Stack spacing={1}>
-                  {mockChallenge.features.map((feature, index) => (
+                  {challengeData.features.map((feature, index) => (
                     <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CheckIcon color="success" fontSize="small" />
                       <Typography variant="body2">{feature}</Typography>
@@ -476,7 +564,7 @@ function ChallengeDetails() {
                   Tags
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
-                  {mockChallenge.tags.map(tag => (
+                  {challengeData.tags.map(tag => (
                     <Chip
                       key={tag}
                       label={tag}
@@ -513,7 +601,7 @@ function ChallengeDetails() {
                     <Typography variant="body2">Participants</Typography>
                   </Box>
                   <Typography variant="body2" fontWeight="bold">
-                    {mockChallenge.stats.totalParticipants.toLocaleString()}
+                    {challengeData.stats.totalParticipants.toLocaleString()}
                   </Typography>
                 </Box>
 
@@ -523,7 +611,7 @@ function ChallengeDetails() {
                     <Typography variant="body2">Completion Rate</Typography>
                   </Box>
                   <Typography variant="body2" fontWeight="bold" color="success.main">
-                    {mockChallenge.stats.completionRate}%
+                    {challengeData.stats.completionRate}%
                   </Typography>
                 </Box>
 
@@ -533,7 +621,7 @@ function ChallengeDetails() {
                     <Typography variant="body2">Community Score</Typography>
                   </Box>
                   <Typography variant="body2" fontWeight="bold">
-                    {mockChallenge.stats.communityScore}/5.0
+                    {challengeData.stats.communityScore}/5.0
                   </Typography>
                 </Box>
 
@@ -543,7 +631,7 @@ function ChallengeDetails() {
                     <Typography variant="body2">Days Left</Typography>
                   </Box>
                   <Typography variant="body2" fontWeight="bold" color="warning.main">
-                    {mockChallenge.daysLeft} days
+                    {challengeData.daysLeft} days
                   </Typography>
                 </Box>
               </Stack>
@@ -557,35 +645,35 @@ function ChallengeDetails() {
               <Card 
                 variant="outlined" 
                 sx={{ 
-                  background: `linear-gradient(135deg, ${getRarityColor(mockChallenge.achievement.rarity)}15 0%, ${getRarityColor(mockChallenge.achievement.rarity)}05 100%)`,
-                  border: `2px solid ${getRarityColor(mockChallenge.achievement.rarity)}30`
+                  background: `linear-gradient(135deg, ${getRarityColor(challengeData.achievement.rarity)}15 0%, ${getRarityColor(challengeData.achievement.rarity)}05 100%)`,
+                  border: `2px solid ${getRarityColor(challengeData.achievement.rarity)}30`
                 }}
               >
                 <CardContent sx={{ p: 2 }}>
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Avatar
                       sx={{
-                        bgcolor: getRarityColor(mockChallenge.achievement.rarity),
+                        bgcolor: getRarityColor(challengeData.achievement.rarity),
                         width: 48,
                         height: 48,
                         fontSize: '1.5rem'
                       }}
                     >
-                      {mockChallenge.achievement.badge}
+                      {challengeData.achievement.badge}
                     </Avatar>
                     <Box>
                       <Typography variant="subtitle2" fontWeight="bold">
-                        {mockChallenge.achievement.title}
+                        {challengeData.achievement.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                        {mockChallenge.achievement.description}
+                        {challengeData.achievement.description}
                       </Typography>
                       <Chip
-                        label={mockChallenge.achievement.rarity.toUpperCase()}
+                        label={challengeData.achievement.rarity.toUpperCase()}
                         size="small"
                         sx={{
                           mt: 0.5,
-                          bgcolor: getRarityColor(mockChallenge.achievement.rarity),
+                          bgcolor: getRarityColor(challengeData.achievement.rarity),
                           color: 'white',
                           fontSize: '0.7rem',
                           height: 20
@@ -613,9 +701,9 @@ function ChallengeDetails() {
               </Typography>
               
               <Box>
-                {mockChallenge.milestones.map((milestone, index) => {
+                {challengeData.milestones.map((milestone, index) => {
                   const isActive = !milestone.completed && 
-                    mockChallenge.milestones.slice(0, index).every(m => m.completed);
+                    challengeData.milestones.slice(0, index).every(m => m.completed);
                   
                   return (
                     <MilestoneStep
@@ -746,265 +834,273 @@ function ChallengeDetails() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-          <CircularProgress size={60} />
-        </Box>
-      </Container>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!challengeData) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography>Challenge not found or error loading data.</Typography>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
-      {/* Header */}
-      <Slide direction="down" in={true} timeout={600}>
-        <Box sx={{ mb: 4 }}>
-          <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} lg={8}>
-              <Box sx={{ mb: 2 }}>
-                {mockChallenge.isTrending && (
-                  <Chip
-                    icon={<TrendingIcon />}
-                    label="Trending"
-                    color="error"
+    <Box sx={{ pb: 8 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
+        {/* Header */}
+        <Slide direction="down" in={true} timeout={600}>
+          <Box sx={{ mb: 4 }}>
+            <Grid container spacing={3} alignItems="center">
+              <Grid item xs={12} lg={8}>
+                <Box sx={{ mb: 2 }}>
+                  {challengeData.isTrending && (
+                    <Chip
+                      icon={<TrendingIcon />}
+                      label="Trending"
+                      color="error"
+                      sx={{ 
+                        mb: 2, 
+                        background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%)',
+                        color: 'white',
+                        fontWeight: 600
+                      }}
+                    />
+                  )}
+                  <Typography 
+                    variant={isMobile ? "h4" : "h3"} 
+                    component="h1" 
+                    fontWeight="bold"
+                    gutterBottom
+                  >
+                    {challengeData.title}
+                  </Typography>
+                  <Typography variant="h6" color="text.secondary" paragraph>
+                    {challengeData.description}
+                  </Typography>
+                </Box>
+
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                  <Chip 
+                    label={challengeData.category} 
                     sx={{ 
-                      mb: 2, 
-                      background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%)',
+                      background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
                       color: 'white',
                       fontWeight: 600
                     }}
                   />
-                )}
-                <Typography 
-                  variant={isMobile ? "h4" : "h3"} 
-                  component="h1" 
-                  fontWeight="bold"
-                  gutterBottom
-                >
-                  {mockChallenge.title}
-                </Typography>
-                <Typography variant="h6" color="text.secondary" paragraph>
-                  {mockChallenge.description}
-                </Typography>
-              </Box>
+                  <Chip
+                    label={challengeData.difficulty}
+                    sx={{
+                      bgcolor: getDifficultyColor(challengeData.difficulty),
+                      color: 'white',
+                      fontWeight: 600,
+                      textTransform: 'capitalize'
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      onClick={handleLikeToggle}
+                      sx={{ 
+                        color: isLiked ? 'error.main' : 'action.active',
+                        '&:hover': { transform: 'scale(1.1)' }
+                      }}
+                    >
+                      {isLiked ? <HeartIcon /> : <HeartOutlineIcon />}
+                    </IconButton>
+                    <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                      {likesCount}
+                    </Typography>
+                  </Box>
+                </Stack>
 
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 1 }}>
-                <Chip 
-                  label={mockChallenge.category} 
-                  sx={{ 
-                    background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
-                    color: 'white',
-                    fontWeight: 600
-                  }}
-                />
-                <Chip
-                  label={mockChallenge.difficulty}
-                  sx={{
-                    bgcolor: getDifficultyColor(mockChallenge.difficulty),
-                    color: 'white',
-                    fontWeight: 600,
-                    textTransform: 'capitalize'
-                  }}
-                />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <IconButton
-                    size="small"
-                    onClick={handleLikeToggle}
+                {/* Creator Info */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 3 }}>
+                  <Avatar 
+                    src={challengeData.creator.avatar} 
                     sx={{ 
-                      color: isLiked ? 'error.main' : 'action.active',
-                      '&:hover': { transform: 'scale(1.1)' }
+                      width: 56, 
+                      height: 56,
+                      border: '3px solid',
+                      borderColor: 'primary.main'
                     }}
                   >
-                    {isLiked ? <HeartIcon /> : <HeartOutlineIcon />}
-                  </IconButton>
-                  <Typography variant="body2" color="text.secondary" fontWeight="medium">
-                    {likesCount}
-                  </Typography>
+                    {challengeData.creator.name.charAt(0)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {challengeData.creator.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {challengeData.creator.title} • {challengeData.creator.experience}
+                    </Typography>
+                  </Box>
                 </Box>
-              </Stack>
+              </Grid>
 
-              {/* Creator Info */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 3 }}>
-                <Avatar 
-                  src={mockChallenge.creator.avatar} 
+              <Grid item xs={12} lg={4}>
+                <Card 
+                  elevation={0} 
                   sx={{ 
-                    width: 56, 
-                    height: 56,
-                    border: '3px solid',
-                    borderColor: 'primary.main'
+                    border: '2px solid',
+                    borderColor: 'primary.main',
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 140, 248, 0.05) 100%)',
+                    p: 2
                   }}
                 >
-                  {mockChallenge.creator.name.charAt(0)}
-                </Avatar>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {mockChallenge.creator.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {mockChallenge.creator.title} • {mockChallenge.creator.experience}
-                  </Typography>
-                </Box>
-              </Box>
-            </Grid>
+                  <Stack spacing={2}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CalendarIcon color="action" />
+                      <Typography variant="body2">
+                        {format(challengeData.startDate, 'MMM d')} - {format(challengeData.endDate, 'MMM d, yyyy')}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TrophyIcon sx={{ color: theme.palette.warning.main }} />
+                      <Typography variant="body2" fontWeight="medium">
+                        {challengeData.xpReward} XP Reward
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <GroupsIcon color="action" />
+                      <Typography variant="body2">
+                        {challengeData.stats.totalParticipants.toLocaleString()} Participants
+                      </Typography>
+                    </Box>
 
-            <Grid item xs={12} lg={4}>
-              <Card 
-                elevation={0} 
-                sx={{ 
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 140, 248, 0.05) 100%)',
-                  p: 2
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        onClick={() => setShowJoinDialog(true)}
+                        sx={{
+                          background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                          },
+                        }}
+                      >
+                        Join Challenge
+                      </Button>
+                      <IconButton
+                        onClick={handleBookmarkToggle}
+                        sx={{ 
+                          border: '2px solid',
+                          borderColor: 'primary.main',
+                          color: isBookmarked ? 'primary.main' : 'action.active'
+                        }}
+                      >
+                        {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Card>
+              </Grid>
+            </Grid>
+          </Box>
+        </Slide>
+
+        {/* Navigation Tabs */}
+        <Slide direction="up" in={true} timeout={800}>
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              mb: 4,
+              border: '1px solid #E5E7EB',
+              borderRadius: 3
+            }}
+          >
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs 
+                value={activeTab} 
+                onChange={handleTabChange}
+                variant={isMobile ? "fullWidth" : "standard"}
+                sx={{
+                  '& .MuiTab-root': {
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    fontSize: '1rem'
+                  }
                 }}
               >
-                <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CalendarIcon color="action" />
-                    <Typography variant="body2">
-                      {format(mockChallenge.startDate, 'MMM d')} - {format(mockChallenge.endDate, 'MMM d, yyyy')}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TrophyIcon sx={{ color: theme.palette.warning.main }} />
-                    <Typography variant="body2" fontWeight="medium">
-                      {mockChallenge.xpReward} XP Reward
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <GroupsIcon color="action" />
-                    <Typography variant="body2">
-                      {mockChallenge.stats.totalParticipants.toLocaleString()} Participants
-                    </Typography>
-                  </Box>
+                <Tab label="Overview" />
+                <Tab label="Leaderboard" />
+              </Tabs>
+            </Box>
+          </Paper>
+        </Slide>
 
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      size="large"
-                      onClick={() => setShowJoinDialog(true)}
-                      sx={{
-                        background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                        },
-                      }}
-                    >
-                      Join Challenge
-                    </Button>
-                    <IconButton
-                      onClick={handleBookmarkToggle}
-                      sx={{ 
-                        border: '2px solid',
-                        borderColor: 'primary.main',
-                        color: isBookmarked ? 'primary.main' : 'action.active'
-                      }}
-                    >
-                      {isBookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-                    </IconButton>
-                  </Stack>
-                </Stack>
-              </Card>
-            </Grid>
-          </Grid>
+        {/* Content */}
+        <Box sx={{ mt: 3 }}>
+          {activeTab === 0 ? renderOverview() : renderParticipants()}
         </Box>
-      </Slide>
 
-      {/* Navigation Tabs */}
-      <Slide direction="up" in={true} timeout={800}>
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            mb: 4,
-            border: '1px solid #E5E7EB',
-            borderRadius: 3
-          }}
-        >
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={activeTab} 
-              onChange={handleTabChange}
-              variant={isMobile ? "fullWidth" : "standard"}
-              sx={{
-                '& .MuiTab-root': {
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  fontSize: '1rem'
-                }
-              }}
-            >
-              <Tab label="Overview" />
-              <Tab label="Leaderboard" />
-            </Tabs>
-          </Box>
-        </Paper>
-      </Slide>
+        {/* Mobile Actions */}
+        {isMobile && (
+          <SpeedDial
+            ariaLabel="Challenge actions"
+            sx={{ position: 'fixed', bottom: 16, right: 16 }}
+            icon={<SpeedDialIcon />}
+          >
+            <SpeedDialAction
+              icon={<ShareIcon />}
+              tooltipTitle="Share"
+              onClick={() => {}}
+            />
+            <SpeedDialAction
+              icon={<CommentIcon />}
+              tooltipTitle="Comments"
+              onClick={() => {}}
+            />
+            <SpeedDialAction
+              icon={<FlagIcon />}
+              tooltipTitle="Report"
+              onClick={() => {}}
+            />
+          </SpeedDial>
+        )}
 
-      {/* Content */}
-      <Box sx={{ mt: 3 }}>
-        {activeTab === 0 ? renderOverview() : renderParticipants()}
-      </Box>
-
-      {/* Mobile Actions */}
-      {isMobile && (
-        <SpeedDial
-          ariaLabel="Challenge actions"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
-          icon={<SpeedDialIcon />}
-        >
-          <SpeedDialAction
-            icon={<ShareIcon />}
-            tooltipTitle="Share"
-            onClick={() => {}}
-          />
-          <SpeedDialAction
-            icon={<CommentIcon />}
-            tooltipTitle="Comments"
-            onClick={() => {}}
-          />
-          <SpeedDialAction
-            icon={<FlagIcon />}
-            tooltipTitle="Report"
-            onClick={() => {}}
-          />
-        </SpeedDial>
-      )}
-
-      {/* Join Dialog */}
-      <Dialog open={showJoinDialog} onClose={() => setShowJoinDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          <Typography variant="h5" component="span" fontWeight="bold">
-            Join Challenge 🚀
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', pb: 3 }}>
-          <Typography variant="body1" paragraph>
-            Ready to start your JavaScript mastery journey?
-          </Typography>
-          <Stack spacing={2}>
-            <Button
-              variant="contained"
-              size="large"
-              fullWidth
-              sx={{
-                background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
-                },
-              }}
-            >
-              Join Now - Free
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setShowJoinDialog(false)}
-            >
-              Maybe Later
-            </Button>
-          </Stack>
-        </DialogContent>
-      </Dialog>
-    </Container>
+        {/* Join Dialog */}
+        <Dialog open={showJoinDialog} onClose={() => setShowJoinDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+            <Typography variant="h5" component="span" fontWeight="bold">
+              Join Challenge 🚀
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ textAlign: 'center', pb: 3 }}>
+            <Typography variant="body1" paragraph>
+              Ready to start your JavaScript mastery journey?
+            </Typography>
+            <Stack spacing={2}>
+              <Button
+                variant="contained"
+                size="large"
+                fullWidth
+                sx={{
+                  background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
+                  },
+                }}
+              >
+                Join Now - Free
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setShowJoinDialog(false)}
+              >
+                Maybe Later
+              </Button>
+            </Stack>
+          </DialogContent>
+        </Dialog>
+      </Container>
+    </Box>
   );
 }
 
