@@ -12,13 +12,13 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Restore authentication from localStorage
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }) => {
         const data = await response.json();
         setToken(data.token);
         setUser({ id: data.userId, email });
+        // Store in localStorage for persistence
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({ id: data.userId, email }));
         return { success: true };
@@ -66,6 +67,7 @@ export const AuthProvider = ({ children }) => {
         const data = await response.json();
         setToken(data.token);
         setUser({ id: data.userId, email });
+        // Store in localStorage for persistence
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({ id: data.userId, email }));
         return { success: true };

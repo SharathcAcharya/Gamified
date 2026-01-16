@@ -134,7 +134,7 @@ function ChallengeList() {
       difficulty: 'medium',
       creator: {
         name: 'Sarah Johnson',
-        avatar: '/static/images/avatar/1.jpg'
+        avatar: 'https://mui.com/static/images/avatar/1.jpg'
       },
       participants: 1247,
       maxParticipants: 2000,
@@ -160,7 +160,7 @@ function ChallengeList() {
       difficulty: 'hard',
       creator: {
         name: 'Alex Chen',
-        avatar: '/static/images/avatar/2.jpg'
+        avatar: 'https://mui.com/static/images/avatar/2.jpg'
       },
       participants: 456,
       maxParticipants: 500,
@@ -182,7 +182,7 @@ function ChallengeList() {
       difficulty: 'easy',
       creator: {
         name: 'Emma Watson',
-        avatar: '/static/images/avatar/3.jpg'
+        avatar: 'https://mui.com/static/images/avatar/3.jpg'
       },
       participants: 892,
       maxParticipants: 1000,
@@ -204,7 +204,7 @@ function ChallengeList() {
       difficulty: 'medium',
       creator: {
         name: 'David Kim',
-        avatar: '/static/images/avatar/4.jpg'
+        avatar: 'https://mui.com/static/images/avatar/4.jpg'
       },
       participants: 234,
       maxParticipants: 300,
@@ -437,7 +437,14 @@ function ChallengeList() {
           </Box>
         </CardContent>
 
-        <CardActions sx={{ px: 3, pb: 2, justifyContent: 'space-between', alignItems: 'center' }}>
+        <CardActions sx={{ 
+          px: { xs: 2, sm: 3 }, 
+          pb: 2, 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          gap: { xs: 1, sm: 0 }
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton
               size="small"
@@ -465,8 +472,9 @@ function ChallengeList() {
             component={Link}
             to={`/challenges/${challenge._id}`}
             variant="contained"
-            size="small"
+            size={isMobile ? 'medium' : 'medium'}
             sx={{
+              minWidth: { xs: '100%', sm: 'auto' },
               background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
               '&:hover': {
                 background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
@@ -506,10 +514,10 @@ function ChallengeList() {
   );
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 } }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
       <Slide direction="down" in={true} timeout={600}>
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
+        <Box sx={{ textAlign: 'center', mb: { xs: 3, md: 4 }, px: { xs: 1, sm: 0 } }}>
           <Typography 
             variant={isMobile ? "h4" : "h3"} 
             component="h1" 
@@ -601,7 +609,7 @@ function ChallengeList() {
                 />
               </Grid>
               
-              <Grid item xs={6} md={2}>
+              <Grid item xs={6} sm={4} md={2}>
                 <FormControl fullWidth>
                   <InputLabel>Category</InputLabel>
                   <Select
@@ -640,7 +648,7 @@ function ChallengeList() {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} md={2}>
+              <Grid item xs={6} sm={6} md={2}>
                 <FormControl fullWidth>
                   <InputLabel>Sort By</InputLabel>
                   <Select
@@ -658,15 +666,16 @@ function ChallengeList() {
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12} md={2}>
+              <Grid item xs={6} sm={6} md={2}>
                 <Button
                   component={Link}
                   to="/create-challenge"
                   variant="contained"
                   fullWidth
-                  startIcon={<AddIcon />}
+                  startIcon={!isMobile && <AddIcon />}
                   sx={{
                     height: '56px',
+                    minHeight: { xs: '48px', sm: '56px' },
                     background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
@@ -690,10 +699,10 @@ function ChallengeList() {
       </Box>
 
       {/* Challenge Grid */}
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
         {loading ? (
           Array.from(new Array(6)).map((_, index) => (
-            <Grid item xs={12} sm={6} lg={4} key={index}>
+            <Grid item xs={12} sm={6} md={6} lg={4} key={index}>
               <SkeletonCard />
             </Grid>
           ))
@@ -702,7 +711,8 @@ function ChallengeList() {
             <Grid 
               item 
               xs={12} 
-              sm={6} 
+              sm={6}
+              md={6}
               lg={viewMode === 'grid' ? 4 : 12} 
               key={challenge._id}
             >

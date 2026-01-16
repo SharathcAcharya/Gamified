@@ -70,13 +70,19 @@ const StatCard = ({ icon, title, value, subtitle, color = 'primary', delay = 0 }
       <Card
         sx={{
           height: '100%',
-          background: `linear-gradient(135deg, ${theme.palette[color].main}15 0%, ${theme.palette[color].main}05 100%)`,
-          border: `1px solid ${theme.palette[color].main}20`,
-          position: 'relative',
-          overflow: 'visible',
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          overflow: 'hidden',
+          transition: 'all 0.3s ease-in-out',
           '&:hover': {
+            transform: 'translateY(-8px)',
+            boxShadow: `0 20px 25px -5px ${theme.palette[color].main}20, 0 10px 10px -5px ${theme.palette[color].main}10`,
+            borderColor: theme.palette[color].main,
             '& .stat-icon': {
               transform: 'scale(1.1) rotate(5deg)',
+              backgroundColor: theme.palette[color].main,
+              color: '#fff',
             },
           },
         }}
@@ -84,14 +90,23 @@ const StatCard = ({ icon, title, value, subtitle, color = 'primary', delay = 0 }
         <CardContent sx={{ p: isMobile ? 2 : 3 }}>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
+              <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontWeight: 600 }}>
                 {title}
               </Typography>
-              <Typography variant={isMobile ? 'h4' : 'h3'} component="div" fontWeight="bold">
+              <Typography 
+                variant={isMobile ? 'h4' : 'h3'} 
+                component="div" 
+                fontWeight="800"
+                sx={{ 
+                  background: `linear-gradient(135deg, ${theme.palette[color].main} 0%, ${theme.palette[color].dark} 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
                 <AnimatedCounter value={value} />
               </Typography>
               {subtitle && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontWeight: 500 }}>
                   {subtitle}
                 </Typography>
               )}
@@ -99,10 +114,11 @@ const StatCard = ({ icon, title, value, subtitle, color = 'primary', delay = 0 }
             <Avatar
               className="stat-icon"
               sx={{
-                bgcolor: theme.palette[color].main,
-                width: isMobile ? 48 : 56,
-                height: isMobile ? 48 : 56,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                width: isMobile ? 48 : 64,
+                height: isMobile ? 48 : 64,
+                bgcolor: `${theme.palette[color].light}20`,
+                color: theme.palette[color].main,
+                transition: 'all 0.3s ease-in-out',
               }}
             >
               {icon}
@@ -231,6 +247,7 @@ const Dashboard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [challenges, setChallenges] = useState([]);
   const [stats, setStats] = useState({
     totalChallenges: 0,
@@ -291,6 +308,11 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Please log in to view your dashboard');
+        setLoading(false);
+        return;
+      }
       
       // Fetch user profile for stats
       const profileResponse = await fetch('/api/users/profile', {
@@ -341,11 +363,11 @@ const Dashboard = () => {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: isMobile ? 2 : 4 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Welcome Section */}
       <Fade in={true} timeout={600}>
-        <Box mb={4}>
-          <Typography variant={isMobile ? 'h4' : 'h3'} component="h1" gutterBottom fontWeight="bold">
+        <Box mb={{ xs: 3, md: 4 }}>
+          <Typography variant={isMobile ? 'h5' : 'h3'} component="h1" gutterBottom fontWeight="bold">
             Welcome back, {user?.firstName || user?.email?.split('@')[0] || 'Champion'}! 🚀
           </Typography>
           <Typography variant="h6" color="text.secondary">
@@ -412,16 +434,17 @@ const Dashboard = () => {
           <Typography variant="h6" gutterBottom fontWeight="bold" mb={2}>
             Quick Actions
           </Typography>
-          <Grid container spacing={isMobile ? 1 : 2}>
+          <Grid container spacing={isMobile ? 1.5 : 2}>
             {quickActions.map((action, index) => (
-              <Grid item xs={6} sm={3} key={action.label}>
+              <Grid item xs={6} sm={6} md={3} key={action.label}>
                 <Button
                   variant="outlined"
                   fullWidth
-                  startIcon={action.icon}
+                  startIcon={!isMobile && action.icon}
                   onClick={() => navigate(action.path)}
                   sx={{
-                    p: isMobile ? 1.5 : 2,
+                    p: { xs: 1.5, sm: 2 },
+                    minHeight: { xs: '56px', sm: '64px' },
                     borderRadius: 3,
                     textAlign: 'left',
                     justifyContent: 'flex-start',

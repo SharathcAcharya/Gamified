@@ -71,9 +71,23 @@ const difficulties = [
   { value: 'hard', label: 'Hard', color: 'error', description: 'For experienced participants' }
 ];
 
+const frequencies = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'custom', label: 'Custom' }
+];
+
+const proofTypes = [
+  { value: 'text', label: 'Text Description', icon: '📝' },
+  { value: 'photo', label: 'Photo Upload', icon: '📸' },
+  { value: 'video', label: 'Video Upload', icon: '🎥' },
+  { value: 'integration', label: 'App Integration', icon: '🔌' }
+];
+
 const steps = [
   { label: 'Basic Info', icon: <InfoIcon /> },
-  { label: 'Settings', icon: <SettingsIcon /> },
+  { label: 'Time & Logistics', icon: <SettingsIcon /> },
   { label: 'Teams & Rewards', icon: <TrophyIcon /> },
   { label: 'Milestones', icon: <TimelineIcon /> },
 ];
@@ -95,6 +109,8 @@ function CreateChallenge() {
     description: '',
     category: '',
     difficulty: '',
+    proofType: '',
+    frequency: '',
     startDate: null,
     endDate: null,
     maxParticipants: '',
@@ -199,6 +215,8 @@ function CreateChallenge() {
       case 1:
         if (!formData.startDate) newErrors.startDate = 'Start date is required';
         if (!formData.endDate) newErrors.endDate = 'End date is required';
+        if (!formData.frequency) newErrors.frequency = 'Frequency is required';
+        if (!formData.proofType) newErrors.proofType = 'Proof type is required';
         if (formData.startDate && formData.endDate && formData.startDate >= formData.endDate) {
           newErrors.endDate = 'End date must be after start date';
         }
@@ -241,11 +259,19 @@ function CreateChallenge() {
     setIsSubmitting(true);
     
     try {
+      const difficultyMap = {
+        'easy': 'beginner',
+        'medium': 'intermediate',
+        'hard': 'advanced'
+      };
+
       const challengeData = {
         name: formData.title,
         description: formData.description,
-        category: formData.category,
-        difficulty: formData.difficulty,
+        category: formData.category.toLowerCase(),
+        difficulty: difficultyMap[formData.difficulty] || formData.difficulty,
+        frequency: formData.frequency,
+        proofType: formData.proofType,
         startDate: formData.startDate,
         endDate: formData.endDate,
         maxParticipants: formData.maxParticipants || null,
@@ -401,6 +427,43 @@ function CreateChallenge() {
           <Fade in={true} timeout={600}>
             <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required error={!!errors.frequency}>
+                  <InputLabel>Frequency</InputLabel>
+                  <Select
+                    value={formData.frequency}
+                    label="Frequency"
+                    onChange={handleChange('frequency')}
+                  >
+                    {frequencies.map((freq) => (
+                      <MenuItem key={freq.value} value={freq.value}>
+                        {freq.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required error={!!errors.proofType}>
+                  <InputLabel>Proof Type</InputLabel>
+                  <Select
+                    value={formData.proofType}
+                    label="Proof Type"
+                    onChange={handleChange('proofType')}
+                  >
+                    {proofTypes.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        <Box display="flex" alignItems="center">
+                          <span style={{ marginRight: 8 }}>{type.icon}</span>
+                          {type.label}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <DatePicker
                     label="Start Date"
@@ -458,7 +521,7 @@ function CreateChallenge() {
                 </LocalizationProvider>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   type="number"

@@ -273,7 +273,7 @@ const ActivityFeed = () => {
 
   return (
     <Box>
-      {activities.length === 0 ? (
+      {(!Array.isArray(activities) || activities.length === 0) ? (
         <Box sx={{ textAlign: 'center', py: 4 }}>
           <ActivityIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
           <Typography variant="h6" color="text.secondary">

@@ -71,7 +71,7 @@ const mockChallenge = {
   creator: {
     id: '1',
     name: 'Sarah Chen',
-    avatar: '/static/images/avatar/1.jpg',
+    avatar: 'https://mui.com/static/images/avatar/1.jpg',
     title: 'Senior Full-Stack Developer',
     experience: '5+ years'
   },
@@ -79,7 +79,7 @@ const mockChallenge = {
     { 
       id: '2', 
       name: 'Mike Johnson', 
-      avatar: '/static/images/avatar/2.jpg', 
+      avatar: 'https://mui.com/static/images/avatar/2.jpg', 
       progress: 85,
       rank: 1,
       points: 2450,
@@ -88,7 +88,7 @@ const mockChallenge = {
     { 
       id: '3', 
       name: 'Emma Davis', 
-      avatar: '/static/images/avatar/3.jpg', 
+      avatar: 'https://mui.com/static/images/avatar/3.jpg', 
       progress: 72,
       rank: 2, 
       points: 2100,
@@ -97,7 +97,7 @@ const mockChallenge = {
     { 
       id: '4', 
       name: 'Alex Kim', 
-      avatar: '/static/images/avatar/4.jpg', 
+      avatar: 'https://mui.com/static/images/avatar/4.jpg', 
       progress: 68,
       rank: 3,
       points: 1950,
@@ -106,7 +106,7 @@ const mockChallenge = {
     { 
       id: '5', 
       name: 'Lisa Wang', 
-      avatar: '/static/images/avatar/5.jpg', 
+      avatar: 'https://mui.com/static/images/avatar/5.jpg', 
       progress: 54,
       rank: 4,
       points: 1600,

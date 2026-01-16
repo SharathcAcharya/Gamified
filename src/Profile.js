@@ -56,6 +56,7 @@ import { useSocket } from './contexts/SocketContext';
 function Profile() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { socket } = useSocket();
 
   // Enhanced mock user data
@@ -63,7 +64,7 @@ function Profile() {
     id: '1',
     name: 'Sarah Chen',
     email: 'sarah.chen@example.com',
-    avatar: '/static/images/avatar/1.jpg',
+    avatar: 'https://mui.com/static/images/avatar/1.jpg',
     title: 'Full-Stack Developer',
     location: 'San Francisco, CA',
     bio: 'Passionate developer who loves building amazing user experiences. Always learning and sharing knowledge with the community.',
@@ -793,7 +794,7 @@ function Profile() {
                         boxShadow: theme.shadows[8],
                       }}
                     >
-                      {profileData.name.charAt(0)}
+                      {profileData.name ? profileData.name.charAt(0) : '?'}
                     </Avatar>
                   </Badge>
                   

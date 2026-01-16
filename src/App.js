@@ -12,9 +12,12 @@ import SocialFeatures from './components/SocialFeatures';
 import PaymentSystem from './components/PaymentSystem';
 import NotificationSystem from './components/NotificationSystem';
 import AdvancedAnalytics from './components/AdvancedAnalytics';
+import SecurityDashboard from './components/SecurityDashboard';
+import Leaderboard from './components/Leaderboard';
+import VirtualEconomyHub from './components/VirtualEconomyHub';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   AppBar, 
   Toolbar, 
@@ -43,7 +46,9 @@ import {
   CssBaseline,
   Paper,
   Snackbar,
-  Alert
+  Alert,
+  BottomNavigation,
+  BottomNavigationAction
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -63,8 +68,103 @@ import {
   Settings as SettingsIcon,
   People as PeopleIcon,
   Analytics as AnalyticsIcon,
-  Payment as PaymentIcon
+  Payment as PaymentIcon,
+  Home as HomeIcon
 } from '@mui/icons-material';
+
+function MobileBottomNav() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const location = useLocation();
+  const navigate = useNavigate(); // Fixed: using useNavigate directly from react-router-dom
+
+  if (!isMobile) return null;
+
+  const getValue = (path) => {
+    if (path === '/') return 0;
+    if (path.startsWith('/challenges')) return 1;
+    if (path === '/create-challenge') return 2;
+    if (path.startsWith('/social')) return 3;
+    if (path.startsWith('/profile')) return 4;
+    return 0;
+  };
+
+  return (
+    <Paper 
+      sx={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        zIndex: 1100,
+        borderRadius: '20px 20px 0 0',
+        overflow: 'hidden',
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
+        display: { xs: 'block', md: 'none' }
+      }} 
+      elevation={3}
+    >
+      <BottomNavigation
+        showLabels
+        value={getValue(location.pathname)}
+        onChange={(event, newValue) => {
+          switch(newValue) {
+            case 0: navigate('/'); break;
+            case 1: navigate('/challenges'); break;
+            case 2: navigate('/create-challenge'); break;
+            case 3: navigate('/social'); break;
+            case 4: navigate('/profile'); break;
+            default: navigate('/');
+          }
+        }}
+        sx={{
+          height: 65 + (window.safeAreaInsets?.bottom || 0), // Account for safe area if possible, though window.safeAreaInsets isn't standard JS. Box pb is better.
+          pb: 'env(safe-area-inset-bottom)',
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(10px)',
+          '& .MuiBottomNavigationAction-root': {
+            color: theme.palette.text.secondary,
+            minWidth: 'auto',
+            p: 1,
+            '&.Mui-selected': {
+              color: theme.palette.primary.main,
+            },
+          },
+        }}
+      >
+        <BottomNavigationAction label="Home" icon={<HomeIcon />} />
+        <BottomNavigationAction label="Challenges" icon={<TrophyIcon />} />
+        <BottomNavigationAction 
+          label="" 
+          icon={
+            <Box
+              sx={{
+                bgcolor: theme.palette.primary.main,
+                color: 'white',
+                width: { xs: 48, sm: 52 },
+                height: { xs: 48, sm: 52 },
+                borderRadius: '50%',
+                mt: { xs: -2.5, sm: -3 },
+                boxShadow: '0 6px 16px rgba(99, 102, 241, 0.4)',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '&:active': {
+                  transform: 'scale(0.95)',
+                },
+              }}
+            >
+              <AddIcon fontSize={isMobile ? 'medium' : 'large'} />
+            </Box>
+          } 
+        />
+        <BottomNavigationAction label="Social" icon={<PeopleIcon />} />
+        <BottomNavigationAction label="Profile" icon={<PersonIcon />} />
+      </BottomNavigation>
+    </Paper>
+  );
+}
 
 function Navigation({ mobileOpen, handleDrawerToggle }) {
   const theme = useTheme();
@@ -84,11 +184,19 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
+        const token = localStorage.getItem('token');
+        if (!token || !user) {
+          return;
+        }
         const response = await fetch('/api/users/profile', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${token}`
           }
         });
+        if (!response.ok) {
+          console.error('Failed to fetch user stats:', response.status);
+          return;
+        }
         const profile = await response.json();
         if (profile) {
           setStats({
@@ -151,11 +259,14 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
     { text: 'All Challenges', icon: <ListIcon />, path: '/challenges', badge: stats.challenges > 0 ? stats.challenges.toString() : null },
     { text: 'Create Challenge', icon: <AddIcon />, path: '/create-challenge', badge: null },
     { text: 'My Progress', icon: <TimelineIcon />, path: '/progress', badge: null },
+    { text: 'Leaderboard', icon: <TrophyIcon />, path: '/leaderboard', badge: 'New' },
+    { text: 'Virtual Economy', icon: <StarIcon />, path: '/economy', badge: 'New' },
     { text: 'Social Hub', icon: <PeopleIcon />, path: '/social', badge: 'New' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics', badge: null },
     { text: 'Billing', icon: <PaymentIcon />, path: '/payments', badge: null },
     { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: stats.notifications > 0 ? stats.notifications.toString() : null },
-    { text: 'Gamification', icon: <TrophyIcon />, path: '/gamification', badge: null },
+    { text: 'Security', icon: <SettingsIcon />, path: '/security', badge: null },
+    { text: 'Gamification', icon: <FireIcon />, path: '/gamification', badge: null },
     { text: 'Profile', icon: <PersonIcon />, path: '/profile', badge: null }
   ];
 
@@ -168,7 +279,7 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
             sx={{
               width: 48,
               height: 48,
-              background: theme.palette.gradient.primary,
+              background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
               mr: 2,
               border: '2px solid transparent',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -191,7 +302,7 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
               sx={{
                 height: 20,
                 fontSize: '0.7rem',
-                background: theme.palette.gradient.primary,
+                background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
               }}
             />
           </Box>
@@ -365,7 +476,7 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
             sx={{ 
               flexGrow: 1,
               fontWeight: 700,
-              background: theme.palette.gradient.primary,
+              background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               color: 'transparent',
@@ -396,7 +507,7 @@ function Navigation({ mobileOpen, handleDrawerToggle }) {
               sx={{
                 width: 32,
                 height: 32,
-                background: theme.palette.gradient.primary,
+                background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
                 ml: 1,
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -482,7 +593,7 @@ function MobileSpeedDial() {
       ariaLabel="Quick Actions"
       sx={{
         position: 'fixed',
-        bottom: 16,
+        bottom: { xs: 90, md: 16 }, // Adjust for bottom nav on mobile
         right: 16,
         '& .MuiSpeedDial-fab': {
           background: 'linear-gradient(135deg, #6366F1 0%, #8B8CF8 100%)',
@@ -572,7 +683,7 @@ function AppContent() {
           justifyContent: 'center', 
           alignItems: 'center', 
           minHeight: '100vh',
-          background: theme.palette.gradient.light,
+          background: 'linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)',
         }}
       >
         <Box sx={{ textAlign: 'center' }}>
@@ -611,6 +722,7 @@ function AppContent() {
             width: { md: `calc(100% - 280px)` },
             ml: { md: '280px' },
             mt: { xs: 7, md: 8 },
+            pb: { xs: 10, md: 0 }, // Added padding for bottom nav
             minHeight: 'calc(100vh - 64px)',
             position: 'relative',
           }}
@@ -621,6 +733,8 @@ function AppContent() {
                 minHeight: '100%', // Ensure Paper takes full height
                 display: 'flex',
                 flexDirection: 'column',
+                borderRadius: { xs: 0, md: 1 }, // Flat on mobile
+                boxShadow: { xs: 'none', md: '0 4px 6px -1px rgb(0 0 0 / 0.1)' } // Remove shadow on mobile
               }}
             >
               <Routes>
@@ -635,10 +749,16 @@ function AppContent() {
                 <Route path="/notifications" element={<NotificationSystem />} />
                 <Route path="/gamification" element={<DisplayGamification />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/security" element={<SecurityDashboard />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/economy" element={<VirtualEconomyHub />} />
               </Routes>
             </Paper>
           </Fade>
         </Box>
+
+        {/* Mobile Navigation Bar */}
+        <MobileBottomNav />
 
         {/* Mobile Speed Dial */}
         <MobileSpeedDial />

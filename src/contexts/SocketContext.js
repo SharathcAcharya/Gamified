@@ -17,10 +17,11 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     let newSocket;
     if (user && token) {
-      newSocket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+      newSocket = io('http://localhost:5000', {
         auth: {
           token
-        }
+        },
+        transports: ['websocket', 'polling']
       });
 
       newSocket.on('connect', () => {

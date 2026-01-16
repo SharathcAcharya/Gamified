@@ -1,11 +1,112 @@
 body {
-  font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
-  background: linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%);
-  color: #111827;
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #F1F5F9;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #1E293B;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 600px) {
+  /* Improve touch targets */
+  button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* Better spacing for mobile */
+  .MuiContainer-root {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  /* Optimize card layouts */
+  .MuiCard-root {
+    margin-bottom: 12px;
+  }
+  
+  /* Make inputs more accessible */
+  .MuiTextField-root input,
+  .MuiSelect-select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+  
+  /* Better modal experience */
+  .MuiDialog-paper {
+    margin: 16px;
+    max-width: calc(100% - 32px) !important;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 960px) {
+  /* Tablet optimizations */
+  .MuiContainer-root {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
+
+/* Smooth transitions */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Improve scrolling */
+html {
+  scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+}
+
+/* Better focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+}
+
+
 
 .App {
   text-align: center;
@@ -44,4 +145,42 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Mobile Responsiveness Improvements */
+html {
+  -webkit-text-size-adjust: 100%;
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on body */
+}
+
+/* Better touch targets */
+button, 
+[role="button"] {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+/* Smooth scrolling */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar but keep functionality for cleaner mobile look */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
